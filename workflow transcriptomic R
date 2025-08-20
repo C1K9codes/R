@@ -1,0 +1,72 @@
+# Install once
+if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
+BiocManager::install(c("DESeq2","apeglm","pheatmap","AnnotationDbi","org.Dm.eg.db"))
+
+>library(pasilla) ---- instead I will load the data of my interest
+>library(DESeq2)
+>library(AnnotationDbi)
+>library(org.Dm.eg.db)
+>library(pheatmap)
+
+# 1) Sample table + file paths
+>data("my_transcriptome")  # from the package
+>dir_counts <- system.file("extdata", package = "my_transcriptome")  # folder with HTSeq counts
+>pasillaSampleTable$file <- file.path(dir_counts, pasillaSampleTable$file) ---- all pasilla to be edited here
+
+pasillaSampleTable
+# Inspect to see condition (treated/untreated) and type (single/paired)
+
+# 2) Build DESeqDataSet directly from HTSeq count files
+>dds <- DESeqDataSetFromHTSeqCount(
+ + sampleTable = pasillaSampleTable,
+  + directory   = NULL,    # already embedded in 'file' column
+  + design      = ~ type + condition
+)
+
+# Optional: prefilter very low-count genes (speeds things up, no effect on DESeq2’s stats)
+keep <- rowSums(counts(dds) >= 10) >= 2
+dds <- dds[keep, ]
+
+# 3) Run DESeq2 (normalization, dispersion estimation, NB GLM, Wald tests)
+dds <- DESeq(dds)
+
+# 4) QC: sample distances & PCA on variance-stabilized data
+vsd <- vst(dds, blind = FALSE)
+
+# Sample distance heatmap
+sampleDists <- dist(t(assay(vsd)))
+pheatmap(
+  as.matrix(sampleDists),
+  clustering_distance_rows = sampleDists,
+  clustering_distance_cols = sampleDists,
+  main = "Sample-to-sample distances (vst)"
+)
+
+# PCA (DESeq2 helper)
+plotPCA(vsd, intgroup = c("condition","type"))
+
+# 5) Results for knockdown vs control (treated vs untreated)
+res <- results(dds, contrast = c("condition","treated","untreated"))
+res <- lfcShrink(dds, contrast = c("condition","treated","untreated"), type = "apeglm")
+
+summary(res)
+head(res[order(res$padj), ])
+
+# 6) Basic visuals
+plotMA(res, main = "DESeq2 (LFC shrinkage)")
+
+# 7) Annotate Drosophila gene IDs (FlyBase FBgn -> gene symbol)
+# Row names are FlyBase gene IDs in pasilla counts
+fly_ids <- rownames(res)
+symbols <- mapIds(org.Dm.eg.db, keys = fly_ids, keytype = "FLYBASE", column = "SYMBOL")
+annot_res <- cbind(data.frame(gene_symbol = symbols), as.data.frame(res))
+
+# 8) Export significant DE genes
+sig <- subset(annot_res, !is.na(padj) & padj < 0.05)
+# write.csv(sig, "pasilla_DESeq2_significant.csv", row.names = TRUE)
+
+# 9) Heatmap of top DE genes (vst scale)
+top <- head(rownames(sig[order(sig$padj), ]), 50)
+pheatmap(assay(vsd)[top, ], scale = "row",
+         annotation_col = as.data.frame(colData(dds)[,c("condition","type")]),
+         main = "Top 50 DE genes (vst, row-scaled)")

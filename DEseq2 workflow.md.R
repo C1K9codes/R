@@ -2,20 +2,20 @@ DEseq2 workflow
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
 
-BiocManager::install("DESeq2")
-BiocManager::install("airway")
-BiocManager::install("SummarizedExperiment")
+> BiocManager::install("DESeq2")
+> BiocManager::install("airway")
+> BiocManager::install("SummarizedExperiment")
 
-library(DESeq2)
-library(airway)
-library(SummarizedExperiment)
+> library(DESeq2)
+> library(airway)
+> library(SummarizedExperiment)
 
 
-data("airway")
+> data("airway")
 airway
 
 
-colData(airway)
+> colData(airway)
 
 dds <- DESeqDataSet(airway, design = ~ cell + dex)
 dds <- dds[rowSums(counts(dds)) > 1, ]

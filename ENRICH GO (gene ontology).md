@@ -5,22 +5,6 @@ ENRICH GO (gene ontology)
 ## 2. molecular function -- atp binding
 ## 3. cellular component -- nucleus
 
-
-
-> library(clusterProfiler)
-> library(org.Hs.eg.db)
-
-> genes <- c("TP53", "BRCA1", "EGFR", "MYC")
-
-> ego <- enrichGO(
-  gene          = genes,
-  OrgDb         = org.Hs.eg.db,
-  keyType       = "SYMBOL",
-  ont           = "BP",     # or MF / CC ( we can change here the ontology basis we want)
-  pAdjustMethod = "BH",
-  pvalueCutoff  = 0.05,
-  qvalueCutoff  = 0.2)
-
 # View results
 >head(ego)
 
